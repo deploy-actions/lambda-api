@@ -1,0 +1,188 @@
+name: Deploy API Server on Lambda
+description: Github Action to deploy lambda by sam
+branding:
+  icon: upload-cloud
+  color: red
+
+inputs:
+  Name:
+    description: AWS::Serverless::Function FunctionName and Cloudformation `LambdaAPI-{Name}`
+    required: true
+  SAMSourceBucket:
+    description: AWS S3 bucket where artifacts referenced in the template are uploaded.
+    required: false
+  SAMToken:
+    description: The GITHUB Authentication token to use for calling the GITHUB Get the latest release API. Defaults to call the API as unauthenticated request if not specified.
+    required: false
+  Architectures:
+    description: AWS::Serverless::Function Properties
+    required: false
+  AutoPublishAliasAllProperties:
+    description: AWS::Serverless::Function Properties
+    required: false
+  CodeUri:
+    description: AWS::Serverless::Function Properties, only support string type
+    required: false
+  Description:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Environment:
+    description: AWS::Serverless::Function Properties
+    required: false
+  EphemeralStorage:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Cors:
+    description: AWS::Lambda:Url Properties
+    required: false
+  InvokeMode:
+    description: AWS::Lambda::Url Properties
+    required: false
+  Handler:
+    description: AWS::Serverless::Function Properties
+    required: false
+  ImageConfig:
+    description: AWS::Serverless::Function Properties
+    required: false
+  ImageUri:
+    description: AWS::Serverless::Function Properties
+    required: false
+  InlineCode:
+    description: AWS::Serverless::Function Properties
+    required: false
+  KmsKeyArn:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Layers:
+    description: AWS::Serverless::Function Properties
+    required: false
+  LoggingConfig:
+    description: AWS::Serverless::Function Properties
+    required: false
+  MemorySize:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Policies:
+    description: AWS::Serverless::Function Properties
+    required: false
+  ProvisionedConcurrencyConfig:
+    description: AWS::Serverless::Function Properties
+    required: false
+  ReservedConcurrentExecutions:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Runtime:
+    description: AWS::Serverless::Function Properties
+    required: false
+  RuntimeManagementConfig:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Timeout:
+    description: AWS::Serverless::Function Properties
+    required: false
+  VersionDescription:
+    description: AWS::Serverless::Function Properties
+    required: false
+  VpcConfig:
+    description: AWS::Serverless::Function Properties
+    required: false
+  Aliases:
+    description: AWS::CloudFront::Distribution DistributionConfig Properties, To apply this property, you must also enter `AcmCertificateArn` and `HostedZoneId`.
+    required: false
+  AcmCertificateArn:
+    description: AWS::CloudFront::Distribution ViewerCertificate Properties, To apply this property, you must also enter `Aliases` and `HostedZoneId`.
+    required: false
+  HostedZoneId:
+    description: AWS::Route53::RecordSetGroup Properties, To apply this property, you must also enter `Aliases`, `AcmCertificateArn`.
+    required: false
+
+runs:
+  using: composite
+
+  steps:
+    - shell: bash
+      run: aws sts get-caller-identity >/dev/null 2>&1
+
+    - shell: bash
+      id: path
+      run: |
+        echo "path=$GITHUB_ACTION_PATH" >> "$GITHUB_OUTPUT"
+
+    - uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+        token: ${{ inputs.SAMToken }}
+
+    - shell: bash
+      run: |
+        cat <<EOF > config.toml
+        version = 0.1
+
+        [default.build.parameters]
+        cached = true
+        parallel = true
+
+        [default.validate.parameters]
+        lint = true
+
+        [default.deploy.parameters]
+        capabilities = "CAPABILITY_IAM"
+        confirm_changeset = false
+        resolve_s3 = true
+        stack_name = "LambdaAPI-${{ inputs.Name }}"
+        s3_prefix = "LambdaAPI-${{ inputs.Name }}"
+
+        [default.package.parameters]
+        resolve_s3 = true
+        EOF
+
+    - uses: actions/setup-node@main
+      with:
+        node-version: 20
+
+    - shell: bash
+      run: node ${{ steps.path.outputs.path }}/index.js
+      env:
+        Architectures: ${{ inputs.Architectures }}
+        AutoPublishAliasAllProperties: ${{ inputs.AutoPublishAliasAllProperties }}
+        CodeUri: ${{ inputs.CodeUri }}
+        Environment: ${{ inputs.Environment }}
+        EphemeralStorage: ${{ inputs.EphemeralStorage }}
+        FunctionName: ${{ inputs.Name }}
+        Cors: ${{ inputs.Cors }}
+        InvokeMode: ${{ inputs.InvokeMode }}
+        Handler: ${{ inputs.Handler }}
+        ImageConfig: ${{ inputs.ImageConfig }}
+        ImageUri: ${{ inputs.ImageUri }}
+        InlineCode: ${{ inputs.InlineCode }}
+        KmsKeyArn: ${{ inputs.KmsKeyArn }}
+        Layers: ${{ inputs.Layers }}
+        LoggingConfig: ${{ inputs.LoggingConfig }}
+        MemorySize: ${{ inputs.MemorySize }}
+        Policies: ${{ inputs.Policies }}
+        ProvisionedConcurrencyConfig: ${{ inputs.ProvisionedConcurrencyConfig }}
+        ReservedConcurrentExecutions: ${{ inputs.ReservedConcurrentExecutions }}
+        Runtime: ${{ inputs.Runtime }}
+        RuntimeManagementConfig: ${{ inputs.RuntimeManagementConfig }}
+        Timeout: ${{ inputs.Timeout }}
+        VersionDescription: ${{ inputs.VersionDescription }}
+        VpcConfig: ${{ inputs.VpcConfig }}
+        Aliases: ${{ inputs.Aliases }}
+        AcmCertificateArn: ${{ inputs.AcmCertificateArn }}
+        HostedZoneId: ${{ inputs.HostedZoneId }}
+        Root: ${{ github.workspace }}
+
+    - shell: bash
+      run: |
+        sam build --config-file config.toml
+        sam validate --config-file config.toml
+
+        if [ -n "${{ inputs.SAMSourceBucket }}" ]; then
+          sam deploy --no-fail-on-empty-changeset --s3-bucket ${{ inputs.SAMSourceBucket }} --config-file config.toml
+        else
+          sam deploy --no-fail-on-empty-changeset --config-file config.toml
+        fi
+
+    - shell: bash
+      run: |
+        echo $(aws lambda get-function-url-config --function-name ${{ inputs.Name }} --query FunctionUrl --output text) --config-file config.toml
