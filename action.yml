@@ -178,9 +178,9 @@ runs:
         sam validate --config-file config.toml
 
         if [ -n "${{ inputs.SAMSourceBucket }}" ]; then
-          sam deploy --no-fail-on-empty-changeset --s3-bucket ${{ inputs.SAMSourceBucket }} --config-file config.toml --image-repositories []
+          sam deploy --no-fail-on-empty-changeset --s3-bucket ${{ inputs.SAMSourceBucket }} --config-file config.toml --resolve-image-repos
         else
-          sam deploy --no-fail-on-empty-changeset --config-file config.toml --image-repositories []
+          sam deploy --no-fail-on-empty-changeset --config-file config.toml --resolve-image-repos
         fi
 
     - shell: bash
