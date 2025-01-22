@@ -96,6 +96,11 @@ inputs:
     description: AWS::Route53::RecordSetGroup Properties, To apply this property, you must also enter `Aliases`, `AcmCertificateArn`.
     required: false
 
+outputs:
+  DomainName:
+    description: The domain name of the resource
+    value: ${{ steps.output.outputs.DomainName }}
+
 runs:
   using: composite
 
@@ -184,5 +189,7 @@ runs:
         fi
 
     - shell: bash
+      id: output
       run: |
-        echo $(aws lambda get-function-url-config --function-name ${{ inputs.Name }} --query FunctionUrl --output text) --config-file config.toml
+        DomainName=$(aws cloudformation describe-stacks --stack-name "LambdaAPI-${{ inputs.Name }}" --query "Stacks[0].Outputs[?OutputKey=='DomainName'].OutputValue" --output text)
+        echo "DomainName=$DomainName" >> "$GITHUB_OUTPUT"
