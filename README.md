@@ -57,3 +57,9 @@ GitHub Action for deploying API servers on AWS Lambda using AWS SAM (Serverless 
 | Aliases | CloudFront distribution aliases (domain names). Required with AcmCertificateArn and HostedZoneId |  |
 | AcmCertificateArn | ACM certificate ARN for custom domain. Required with Aliases and HostedZoneId |  |
 | HostedZoneId | Route 53 hosted zone ID. Required with Aliases and AcmCertificateArn |  |
+
+## Outputs
+
+| Name           | Description                                                             | Optional |
+| -------------- | ----------------------------------------------------------------------- | -------- |
+| DomainName     | The domain name of the resource, such as example.com                    |          |
